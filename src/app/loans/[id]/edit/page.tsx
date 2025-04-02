@@ -7,24 +7,43 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; 
 
-export default async function EditLoanPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const loan = await prisma.loan.findUnique({
-    where: { id: params.id },
-  });
-
-  if (!loan) {
-    notFound();
-  }
+export default function EditLoanPage({params,}: {params: { id: string };}) {
+   const [loan, setLoan] = useState<any>(null);
+   const [loading, setLoading] = useState(true);
+   const router = useRouter();
+   
+   
+   useEffect(() => {
+     const fetchLoan = async () => {
+       try {
+         const response = await fetch(`/api/loans/${params.id}`);
+         if (!response.ok) throw new Error("Failed to fetch loan");
+         const data = await response.json();
+         setLoan(data);
+       } catch (error) {
+         console.error("Error fetching loan:", error);
+       } finally {
+         setLoading(false);
+       }
+     };
+     fetchLoan();
+   }, [params.id]);
+   
+ 
+   if (loading) return <p>Loading...</p>;
+   if (!loan) return <p>Loan not found</p>;
+ 
   async function handleUpdateLoan (values: LoanFormValues){
     try {
-       updateLoan(loan.id ,values); 
-      toast.success("Success");
-      redirect(`/loans/${loan.id}`);
+      if(loan != null){
+
+        updateLoan(loan.id ,values); 
+        toast.success("Success");
+        router.push("/loans/"+loan.id);
+      }
     } catch (error) {
         toast.error("Error");
         console.error("Error:", error);

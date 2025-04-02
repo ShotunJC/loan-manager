@@ -4,6 +4,7 @@ import  prisma  from "@/lib/prisma";
 import { LoanFormValues } from "@/components/loan-form";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Loan } from "@/types/loan";
 
 export async function createLoan(data: LoanFormValues) {
   try {
@@ -20,9 +21,9 @@ export async function updateLoan(id: string, values: LoanFormValues) {
       where: { id },
       data: {
         borrower: values.borrower,
-        amount: parseFloat(values.amount),
-        interestRate: parseFloat(values.interestRate),
-        term: parseInt(values.term),
+        amount: parseFloat(values.amount.toString()),
+        interestRate: parseFloat(values.interestRate.toString()),
+        term: parseInt(values.term.toString()),
         status: values.status,
         startDate: new Date(values.startDate),
         description: values.description,
@@ -38,8 +39,7 @@ export async function updateLoan(id: string, values: LoanFormValues) {
   }
 }
 
-export async function confirmLoan(formData: FormData) {
-  const loanId = formData.get("loanId") as string;
+export async function confirmLoan(loanId: string) {
   await prisma.loan.update({
     where: { id: loanId },
     data: { status: "APPROVED" },
@@ -47,8 +47,7 @@ export async function confirmLoan(formData: FormData) {
   redirect(`/loans/${loanId}`);
 }
 
-export async function declineLoan(formData: FormData) {
-  const loanId = formData.get("loanId") as string;
+export async function declineLoan(loanId: string) {
   await prisma.loan.update({
     where: { id: loanId },
     data: { status: "REJECTED" },

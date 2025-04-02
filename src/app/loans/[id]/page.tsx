@@ -1,62 +1,70 @@
-"use client"
+"use client";
+
 import { notFound, redirect } from "next/navigation";
-import  prisma  from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { assessLoanRisk } from "@/lib/ai-services";
 import { confirmLoan, declineLoan } from "@/actions/loan-actions";
-import { toast } from "sonner";
-import { LoanStatus } from "@/types/loan";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation"; 
 
-export default async function LoanDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const loan = await prisma.loan.findUnique({
-    where: { id: await params.id },
-  });
-  if (!loan) {
-    notFound();
-  }
+export default function LoanDetailPage({ params }: { params: { id: string } }) {
+  const [loan, setLoan] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [assessmentResult, setAssessmentResult] = useState("");
+  const router = useRouter();
 
-
-   const handleAssessRisk = async () => {
+  useEffect(() => {
+    const fetchLoan = async () => {
       try {
-        const assessment = await assessLoanRisk(loan);
-
-        toast.success("AI Risk Assessment",{
-          description: assessment,
-          action: loan.status === "PENDING" ? (
-            <div className="flex gap-2">
-              <form action={handleConfirm}>
-                <Button variant="default" size="sm">Confirm</Button>
-              </form>
-              <form action={handleDecline}>
-                <Button variant="destructive" size="sm">Decline</Button>
-              </form>
-            </div>
-          ) : undefined});
+        const response = await fetch(`/api/loans/${params.id}`);
+        if (!response.ok) throw new Error("Failed to fetch loan");
+        const data = await response.json();
+        setLoan(data);
       } catch (error) {
-        toast.info( "Assessment Failed",{
-          description: "Could not complete risk assessment",
-        });
-        console.error("Error:", error);
+        console.error("Error fetching loan:", error);
+      } finally {
+        setLoading(false);
       }
     };
+    fetchLoan();
+  }, [params.id]);
 
-    
+  if (loading) return <p>Loading...</p>;
+  if (!loan) return <p>Loan not found</p>;
 
-    async function handleConfirm() {
+  const handleAssessRisk = async () => {
+    try {
+      const assessment = await assessLoanRisk(loan);
+      setAssessmentResult(assessment);
+      setShowModal(true);
+    } catch (error) {
+      console.error("Error:", error);
+      setAssessmentResult("Could not complete risk assessment");
+      setShowModal(true);
+    }
+  };
+
+  async function handleConfirm() {
+    if (loan) {
       await confirmLoan(loan.id);
-
-    };
-
-    async function handleDecline() {
-      await declineLoan(loan.id);
+      setShowModal(false);
+      router.push("/loans/"+loan.id);
 
     }
+  }
+
+  async function handleDecline() {
+    if (loan) {
+      await declineLoan(loan.id);
+      setShowModal(false);
+      router.push("/loans/"+loan.id);
+
+    }
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -64,9 +72,7 @@ export default async function LoanDetailPage({
         <h1 className="text-2xl font-bold">Loan Details</h1>
         <div className="flex gap-2">
           {loan.status === "PENDING" && (
-            <form action={handleAssessRisk}>
-              <Button variant="outline">Assess Risk</Button>
-            </form>
+            <Button onClick={handleAssessRisk} variant="outline">Assess Risk</Button>
           )}
           <Link href={`/loans/${loan.id}/edit`}>
             <Button variant="outline">Edit</Button>
@@ -104,7 +110,7 @@ export default async function LoanDetailPage({
           </div>
           <div>
             <h3 className="font-medium">Start Date</h3>
-            <p>{loan.startDate.toLocaleDateString()}</p>
+            <p>{new Date(loan.startDate).toLocaleDateString()}</p>
           </div>
           {loan.description && (
             <div className="md:col-span-2">
@@ -114,6 +120,22 @@ export default async function LoanDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Modal for Risk Assessment */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI Risk Assessment</DialogTitle>
+            <DialogDescription>{assessmentResult}</DialogDescription>
+          </DialogHeader>
+          {loan.status === "PENDING" && (
+            <div className="flex gap-2 justify-end">
+              <Button onClick={handleConfirm} variant="default">Confirm</Button>
+              <Button onClick={handleDecline} variant="destructive">Decline</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

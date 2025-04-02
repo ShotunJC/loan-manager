@@ -1,17 +1,19 @@
 "use client"; 
 import { LoanForm, LoanFormValues } from "@/components/loan-form";
 import { createLoan } from "@/actions/loan-actions";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation"; 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export default function CreateLoanPage() {
+  const router = useRouter();
+
   const handleCreateLoan = async (values: LoanFormValues) => {
     try {
       await createLoan(values); 
       toast.success("Loan created successfully!");
-      redirect("/loans");
+      router.push("/loans");
     } catch (error) {
       toast.error("Failed to create loan");
       console.error("Error:", error);
